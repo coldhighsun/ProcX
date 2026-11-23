@@ -151,7 +151,8 @@ public sealed class Win32ProcessDetailsProviderTests : IDisposable
         result.Status.Should().Be(DetailsStatus.Ok);
         var handles = result.Value!;
         handles.Select(static h => h.Handle).Should().BeInAscendingOrder();
-        handles.Should().Contain(h => h.TypeName == "File" && string.Equals(h.Name, path, StringComparison.OrdinalIgnoreCase));
+        // The temp path may be an 8.3 short name (e.g. RUNNER~1) while the handle name is the long path, so match on the file name.
+        handles.Should().Contain(h => h.TypeName == "File" && h.Name != null && h.Name.EndsWith(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase));
         handles.Should().Contain(h => h.TypeName == "Key" && h.Name != null && h.Name.StartsWith(@"HKU\", StringComparison.Ordinal) && h.Name.EndsWith(@"\Software", StringComparison.OrdinalIgnoreCase));
         handles.Should().Contain(h => h.TypeName == "Event" && h.Name != null && h.Name.EndsWith(eventName, StringComparison.Ordinal));
         handles.Should().Contain(h => h.TypeName == "Process" && h.Name == $"PID {Environment.ProcessId}");

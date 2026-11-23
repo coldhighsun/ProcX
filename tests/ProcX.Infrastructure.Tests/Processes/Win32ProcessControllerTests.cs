@@ -130,6 +130,7 @@ public sealed class Win32ProcessControllerTests : IDisposable
         // Arrange
         var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
         var stale = KeyOf(child.Id) with { CreateTime = DateTimeOffset.UnixEpoch };
+        var original = child.PriorityClass; // inherited from the test host, which is not always Normal
 
         // Act
         var result = _controller.SetPriority(stale, ProcessPriority.Idle);
@@ -137,7 +138,7 @@ public sealed class Win32ProcessControllerTests : IDisposable
 
         // Assert
         result.Status.Should().Be(ProcessOperationStatus.NotFound);
-        child.PriorityClass.Should().Be(ProcessPriorityClass.Normal);
+        child.PriorityClass.Should().Be(original);
     }
 
     [Fact]
