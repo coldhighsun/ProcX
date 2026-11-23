@@ -4,13 +4,14 @@ using ProcX.Infrastructure.Native;
 namespace ProcX.Infrastructure.Details;
 
 /// <summary>
-/// Queries names of <c>File</c> objects on a dedicated thread with a timeout.
+/// Queries names of <c>File</c> objects on dedicated threads with a timeout.
 /// </summary>
 /// <remarks>
 /// <c>NtQueryObject</c> blocks indefinitely on a synchronous file object (typically a pipe) with a pending
-/// I/O request, and a blocked call cannot be cancelled. The query therefore runs on a background thread; if it
-/// does not answer in time the resolver gives up on all remaining files and abandons the thread, which closes
-/// its handle and exits if the call ever returns.
+/// I/O request, and a blocked call cannot be cancelled. Each query therefore runs on a background thread; if it
+/// does not answer in time that thread is abandoned (it closes its handle and exits if the call ever returns)
+/// and a fresh thread serves the remaining files. After <see cref="MaxAbandonedWorkers"/> timeouts the resolver
+/// gives up on the remaining files so that a process full of blocked pipes cannot leak unbounded threads.
 /// </remarks>
 internal sealed class FileNameResolver : IDisposable
 {
@@ -20,33 +21,29 @@ internal sealed class FileNameResolver : IDisposable
     private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(150);
 
     /// <summary>
-    /// Pending queries.
+    /// How many blocked threads are tolerated before the resolver stops resolving file names.
     /// </summary>
-    private readonly BlockingCollection<Job> _jobs = [];
+    private const int MaxAbandonedWorkers = 8;
 
     /// <summary>
-    /// The worker thread.
+    /// The worker serving queries.
     /// </summary>
-    private readonly Thread _worker;
+    private Worker _current;
 
     /// <summary>
-    /// Set once a query timed out; no further queries are attempted.
+    /// How many workers were abandoned after a timeout.
     /// </summary>
-    private volatile bool _abandoned;
+    private int _abandonedCount;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FileNameResolver"/> class and starts its thread.
+    /// Initializes a new instance of the <see cref="FileNameResolver"/> class and starts its first thread.
     /// </summary>
-    public FileNameResolver()
-    {
-        _worker = new Thread(Run) { IsBackground = true, Name = "ProcX file name resolver" };
-        _worker.Start();
-    }
+    public FileNameResolver() => _current = StartWorker();
 
     /// <summary>
-    /// Gets whether a query timed out, meaning further file names are not resolved.
+    /// Gets whether too many queries timed out, meaning further file names are not resolved.
     /// </summary>
-    public bool IsAbandoned => _abandoned;
+    public bool IsAbandoned => _abandonedCount >= MaxAbandonedWorkers;
 
     /// <summary>
     /// Resolves the name of a file object. Takes ownership of <paramref name="duplicatedHandle"/>.
@@ -55,50 +52,70 @@ internal sealed class FileNameResolver : IDisposable
     /// <returns>The name, or <see langword="null"/> if unnamed, timed out or abandoned.</returns>
     public string? Resolve(nint duplicatedHandle)
     {
-        if (_abandoned)
+        if (IsAbandoned)
         {
             Kernel32.CloseHandle(duplicatedHandle);
             return null;
         }
 
         var job = new Job(duplicatedHandle);
-        _jobs.Add(job);
+        _current.Jobs.Add(job);
         if (job.Result.Task.Wait(Timeout))
         {
             return job.Result.Task.Result;
         }
 
-        _abandoned = true;
+        // The worker is stuck inside the kernel: leave it behind (it exits once the call returns) and continue
+        // with a new one. Only one query is outstanding at a time, so nothing else is queued on it.
+        _abandonedCount++;
+        _current.Jobs.CompleteAdding();
+        if (!IsAbandoned)
+        {
+            _current = StartWorker();
+        }
+
         return null;
     }
 
     /// <summary>
-    /// Stops the worker once it is idle; an abandoned worker is left to exit on its own.
+    /// Stops the current worker once it is idle; abandoned workers are left to exit on their own.
     /// </summary>
     public void Dispose()
     {
-        _jobs.CompleteAdding();
-        if (!_abandoned)
+        if (IsAbandoned)
         {
-            _worker.Join();
-            _jobs.Dispose();
+            return;
         }
+
+        _current.Jobs.CompleteAdding();
+        _current.Thread.Join();
+        _current.Jobs.Dispose();
+    }
+
+    /// <summary>
+    /// Starts a worker thread.
+    /// </summary>
+    /// <returns>The worker.</returns>
+    private static Worker StartWorker()
+    {
+        var jobs = new BlockingCollection<Job>();
+        var thread = new Thread(() => Run(jobs)) { IsBackground = true, Name = "ProcX file name resolver" };
+        thread.Start();
+        return new Worker(jobs, thread);
     }
 
     /// <summary>
     /// The worker loop.
     /// </summary>
-    private void Run()
+    /// <param name="jobs">The queue served by the worker.</param>
+    private static void Run(BlockingCollection<Job> jobs)
     {
-        foreach (var job in _jobs.GetConsumingEnumerable())
+        foreach (var job in jobs.GetConsumingEnumerable())
         {
             string? name = null;
             try
             {
-                if (!_abandoned)
-                {
-                    name = HandleNames.QueryObjectName(job.Handle);
-                }
+                name = HandleNames.QueryObjectName(job.Handle);
             }
             finally
             {
@@ -107,6 +124,13 @@ internal sealed class FileNameResolver : IDisposable
             }
         }
     }
+
+    /// <summary>
+    /// A worker thread and its queue.
+    /// </summary>
+    /// <param name="Jobs">The pending queries.</param>
+    /// <param name="Thread">The thread serving them.</param>
+    private sealed record Worker(BlockingCollection<Job> Jobs, Thread Thread);
 
     /// <summary>
     /// A pending name query.
