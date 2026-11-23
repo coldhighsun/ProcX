@@ -44,6 +44,11 @@ public sealed record ProcessSample
     public long WorkingSetBytes { get; init; }
 
     /// <summary>
+    /// Gets the private working set size in bytes (the "Memory" column of the Windows Task Manager).
+    /// </summary>
+    public long PrivateWorkingSetBytes { get; init; }
+
+    /// <summary>
     /// Gets the private (commit) bytes.
     /// </summary>
     public long PrivateBytes { get; init; }
