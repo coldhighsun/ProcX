@@ -34,7 +34,7 @@ public static class ReplacementCommand
     public static int Execute(StartupMode mode, ITaskManagerReplacementService service, string executable)
     {
         ArgumentNullException.ThrowIfNull(service);
-        if (mode is not (StartupMode.RegisterReplacement or StartupMode.UnregisterReplacement))
+        if (mode is not (StartupMode.RegisterReplacement or StartupMode.UnregisterReplacement or StartupMode.UnregisterReplacementIfOurs))
         {
             // Validated before the try block: the catch below maps ArgumentException from the service to Failed.
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Not a replacement command.");
@@ -42,13 +42,24 @@ public static class ReplacementCommand
 
         try
         {
-            if (mode == StartupMode.RegisterReplacement)
+            switch (mode)
             {
-                service.Enable(executable);
-            }
-            else
-            {
-                service.Disable();
+                case StartupMode.RegisterReplacement:
+                    service.Enable(executable);
+                    break;
+
+                case StartupMode.UnregisterReplacementIfOurs:
+                    // Only Enabled is ours; a broken or foreign entry must be left alone.
+                    if (service.GetStatus(executable).State == ReplacementState.Enabled)
+                    {
+                        service.Disable();
+                    }
+
+                    break;
+
+                default:
+                    service.Disable();
+                    break;
             }
 
             return Success;
