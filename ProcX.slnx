@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ProcX.App/ProcX.App.csproj" />
+    <Project Path="src/ProcX.Application/ProcX.Application.csproj" />
+    <Project Path="src/ProcX.Domain/ProcX.Domain.csproj" />
+    <Project Path="src/ProcX.Infrastructure/ProcX.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/ProcX.Application.Tests/ProcX.Application.Tests.csproj" />
+    <Project Path="tests/ProcX.Domain.Tests/ProcX.Domain.Tests.csproj" />
+    <Project Path="tests/ProcX.Infrastructure.Tests/ProcX.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
