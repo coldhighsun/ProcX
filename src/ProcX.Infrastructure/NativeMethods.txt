@@ -1,0 +1,2 @@
+GetActiveProcessorCount
+ALL_PROCESSOR_GROUPS
