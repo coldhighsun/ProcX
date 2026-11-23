@@ -34,6 +34,11 @@ public interface IShellInteraction
     Task<AffinityMask?> PickAffinityAsync(string processName, AffinityMask current, AffinityMask available);
 
     /// <summary>
+    /// Shows the settings window.
+    /// </summary>
+    void ShowSettings();
+
+    /// <summary>
     /// Opens Explorer with the file selected.
     /// </summary>
     /// <param name="path">The file path.</param>

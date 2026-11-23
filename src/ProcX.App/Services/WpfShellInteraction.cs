@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using ProcX.App.ViewModels;
 using ProcX.App.Views;
 using ProcX.Domain.Processes;
@@ -11,8 +12,19 @@ namespace ProcX.App.Services;
 /// <summary>
 /// <see cref="IShellInteraction"/> implemented with WPF-UI dialogs and Windows shell commands.
 /// </summary>
-public sealed class WpfShellInteraction : IShellInteraction
+/// <param name="services">Resolves view models of windows created on demand.</param>
+public sealed class WpfShellInteraction(IServiceProvider services) : IShellInteraction
 {
+    /// <inheritdoc />
+    public void ShowSettings()
+    {
+        var window = new SettingsWindow(services.GetRequiredService<SettingsViewModel>())
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+        window.ShowDialog();
+    }
+
     /// <inheritdoc />
     public async Task<bool> ConfirmAsync(string title, string message, string confirmText)
     {

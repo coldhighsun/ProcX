@@ -41,6 +41,36 @@ public sealed class WindowsElevationService : IElevationService
         }
     }
 
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">The path of the current executable cannot be determined.</exception>
+    /// <exception cref="Win32Exception">The process could not be started for a reason other than the user declining.</exception>
+    public int? RunElevatedAndWait(string arguments)
+    {
+        var path = Environment.ProcessPath
+            ?? throw new InvalidOperationException("The path of the current executable cannot be determined.");
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(path, arguments)
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden,
+            });
+            if (process is null)
+            {
+                return null;
+            }
+
+            process.WaitForExit();
+            return process.ExitCode;
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// Checks whether the current token is a member of the Administrators group; with UAC this is only
     /// true for an elevated token.

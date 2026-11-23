@@ -323,6 +323,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Opens the settings window.
+    /// </summary>
+    [RelayCommand]
+    private void OpenSettings() => _shell.ShowSettings();
+
+    /// <summary>
     /// Restarts ProcX with administrator rights.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanElevate))]

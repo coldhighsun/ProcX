@@ -101,6 +101,11 @@
 
             <ui:Button DockPanel.Dock="Right"
                        Margin="8,0,0,0"
+                       Icon="{ui:SymbolIcon Settings24}"
+                       ToolTip="Settings"
+                       Command="{Binding OpenSettingsCommand}" />
+            <ui:Button DockPanel.Dock="Right"
+                       Margin="8,0,0,0"
                        Content="End task"
                        Appearance="Danger"
                        Icon="{ui:SymbolIcon Dismiss24}"

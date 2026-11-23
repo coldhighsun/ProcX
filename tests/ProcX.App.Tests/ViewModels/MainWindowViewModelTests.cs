@@ -263,6 +263,19 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void OpenSettings_Executed_ShowsSettingsWindow()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+
+        // Act
+        viewModel.OpenSettingsCommand.Execute(null);
+
+        // Assert
+        _shell.SettingsShown.Should().Be(1);
+    }
+
+    [Fact]
     public void Commands_NoSelection_CannotExecute()
     {
         // Act
@@ -422,6 +435,10 @@ public class MainWindowViewModelTests
         public Task<AffinityMask?> PickAffinityAsync(string processName, AffinityMask current, AffinityMask available) =>
             Task.FromResult(PickedAffinity);
 
+        public int SettingsShown { get; private set; }
+
+        public void ShowSettings() => SettingsShown++;
+
         public void CopyToClipboard(string text) => Clipboard = text;
 
         public void Shutdown() => ShutdownRequested = true;
@@ -440,6 +457,8 @@ public class MainWindowViewModelTests
             StartCount++;
             return StartResult;
         }
+
+        public int? RunElevatedAndWait(string arguments) => throw new NotSupportedException();
     }
 
     private sealed class FixedSystemInformation : ISystemInformation

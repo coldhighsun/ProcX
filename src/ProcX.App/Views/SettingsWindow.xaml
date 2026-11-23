@@ -1,0 +1,51 @@
+<ui:FluentWindow x:Class="ProcX.App.Views.SettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:ProcX.App.ViewModels"
+                 mc:Ignorable="d"
+                 d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
+                 Title="Settings"
+                 Width="560"
+                 SizeToContent="Height"
+                 ResizeMode="NoResize"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 WindowStartupLocation="CenterOwner"
+                 ShowInTaskbar="False">
+    <StackPanel Margin="24,0,24,24">
+        <ui:TitleBar Title="Settings" ShowMaximize="False" ShowMinimize="False" />
+
+        <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="Appearance" />
+        <ComboBox Width="220"
+                  HorizontalAlignment="Left"
+                  ItemsSource="{Binding Themes}"
+                  SelectedItem="{Binding Theme}" />
+
+        <TextBlock Margin="0,20,0,4" FontWeight="SemiBold" Text="Update speed" />
+        <ComboBox Width="220"
+                  HorizontalAlignment="Left"
+                  ItemsSource="{Binding Intervals}"
+                  DisplayMemberPath="Label"
+                  SelectedItem="{Binding SelectedInterval}" />
+
+        <TextBlock Margin="0,20,0,4" FontWeight="SemiBold" Text="Task Manager" />
+        <ui:ToggleSwitch Content="Replace the Windows Task Manager (Ctrl+Shift+Esc)"
+                         IsChecked="{Binding ReplaceTaskManager}"
+                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+        <TextBlock Margin="0,6,0,0"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Text="{Binding ReplacementText}" />
+        <ui:Button Margin="0,10,0,0"
+                   Content="Use this ProcX"
+                   Command="{Binding UseThisInstallCommand}"
+                   Visibility="{Binding CanUseThisInstall, Converter={StaticResource BoolToVisibility}}" />
+        <TextBlock Margin="0,10,0,0"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Text="Changing this needs administrator rights and shows a Windows permission prompt." />
+    </StackPanel>
+</ui:FluentWindow>
