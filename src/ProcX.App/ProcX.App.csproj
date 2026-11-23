@@ -7,6 +7,7 @@
     <AssemblyName>ProcX</AssemblyName>
     <RootNamespace>ProcX.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

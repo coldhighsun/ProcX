@@ -1,6 +1,10 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using ProcX.App.Services;
+using ProcX.App.ViewModels;
+using ProcX.Application.Processes;
+using ProcX.Infrastructure.Processes;
 
 namespace ProcX.App;
 
@@ -15,7 +19,24 @@ public partial class App : System.Windows.Application
     private readonly IHost _host = Host.CreateDefaultBuilder()
         .ConfigureServices(static services =>
         {
+            services.AddSingleton(TimeProvider.System);
+
+            // Infrastructure
+            services.AddSingleton<IProcessSnapshotProvider, NtProcessSnapshotProvider>();
+            services.AddSingleton<ISystemInformation, WindowsSystemInformation>();
+            services.AddSingleton<IProcessInfoProvider, Win32ProcessInfoProvider>();
+
+            // Application
+            services.AddSingleton<ProcessMonitor>();
+            services.AddSingleton<ProcessInfoCache>();
+
+            // Presentation
+            services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+            services.AddSingleton<ProcessIconProvider>();
+            services.AddSingleton<IProcessRowEnricher, ProcessRowEnricher>();
+            services.AddSingleton<ProcessListViewModel>();
             services.AddSingleton<MainWindow>();
+            services.AddHostedService<ProcessMonitorService>();
         })
         .Build();
 
@@ -26,10 +47,12 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        await _host.StartAsync();
 
+        // Resolve UI-affine services on the UI thread before background services start.
         MainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow.Show();
+
+        await _host.StartAsync();
     }
 
     /// <summary>

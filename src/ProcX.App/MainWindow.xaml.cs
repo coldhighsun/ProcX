@@ -1,3 +1,4 @@
+using ProcX.App.ViewModels;
 using Wpf.Ui.Controls;
 
 namespace ProcX.App;
@@ -10,8 +11,10 @@ public partial class MainWindow : FluentWindow
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// </summary>
-    public MainWindow()
+    /// <param name="processList">The process list view model.</param>
+    public MainWindow(ProcessListViewModel processList)
     {
+        DataContext = processList;
         InitializeComponent();
     }
 }
