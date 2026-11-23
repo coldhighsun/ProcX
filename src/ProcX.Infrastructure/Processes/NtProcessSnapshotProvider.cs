@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Runtime.InteropServices;
 using ProcX.Application.Processes;
 using ProcX.Domain.Processes;
 using ProcX.Infrastructure.Native;
@@ -20,17 +19,7 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
     /// <summary>
     /// The initial native buffer size in bytes.
     /// </summary>
-    private const int InitialBufferSize = 512 * 1024;
-
-    /// <summary>
-    /// Extra bytes added on top of the size reported by the kernel, since processes may start between calls.
-    /// </summary>
-    private const int BufferSlack = 64 * 1024;
-
-    /// <summary>
-    /// The maximum number of attempts to size the buffer before giving up.
-    /// </summary>
-    private const int MaxAttempts = 8;
+    internal const uint InitialBufferSize = 512 * 1024;
 
     /// <summary>
     /// Display name the kernel omits for PID 0.
@@ -43,14 +32,9 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
     private readonly Lock _lock = new();
 
     /// <summary>
-    /// The reusable native buffer, allocated lazily.
+    /// The reusable native buffer.
     /// </summary>
-    private unsafe void* _buffer;
-
-    /// <summary>
-    /// Size of <see cref="_buffer"/> in bytes.
-    /// </summary>
-    private uint _bufferSize;
+    private readonly NtQueryBuffer _buffer = new(InitialBufferSize);
 
     /// <summary>
     /// Whether the instance has been disposed.
@@ -65,11 +49,6 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
     {
     }
 
-    /// <summary>
-    /// Finalizes the instance, releasing the native buffer.
-    /// </summary>
-    ~NtProcessSnapshotProvider() => FreeBuffer();
-
     /// <inheritdoc />
     /// <exception cref="Win32Exception">The native query failed.</exception>
     public unsafe ProcessSnapshot Capture()
@@ -78,9 +57,16 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            Query();
+            Fill(_buffer);
             var capturedAt = timeProvider.GetUtcNow();
-            return new ProcessSnapshot(capturedAt, Parse((byte*)_buffer));
+            var records = EnumerateRecordAddresses(_buffer.Pointer);
+            var result = new List<ProcessSample>(records.Count);
+            foreach (var record in records)
+            {
+                result.Add(ToSample(in *(SystemProcessInformation*)record));
+            }
+
+            return new ProcessSnapshot(capturedAt, result);
         }
     }
 
@@ -97,98 +83,55 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
             }
 
             _disposed = true;
-            FreeBuffer();
+            _buffer.Dispose();
         }
-
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
-    /// Fills the native buffer, growing it until the data fits.
+    /// Fills a buffer with <c>SystemProcessInformation</c>.
     /// </summary>
-    /// <exception cref="Win32Exception">The native query failed or the buffer could not be sized.</exception>
-    private unsafe void Query()
+    /// <param name="buffer">The buffer.</param>
+    /// <exception cref="Win32Exception">The native query failed.</exception>
+    internal static unsafe void Fill(NtQueryBuffer buffer)
     {
-        if (_buffer is null)
+        var status = buffer.Fill(static (data, length, out required) =>
+            NtDll.NtQuerySystemInformation(NtDll.SystemProcessInformationClass, data, length, out required));
+
+        if (!NtDll.NtSuccess(status))
         {
-            Allocate(InitialBufferSize);
-        }
-
-        for (var attempt = 0; attempt < MaxAttempts; attempt++)
-        {
-            var status = NtDll.NtQuerySystemInformation(
-                NtDll.SystemProcessInformationClass,
-                _buffer,
-                _bufferSize,
-                out var required);
-
-            if (NtDll.NtSuccess(status))
-            {
-                return;
-            }
-
-            if (status != NtDll.StatusInfoLengthMismatch)
-            {
-                throw new Win32Exception((int)NtDll.RtlNtStatusToDosError(status));
-            }
-
-            Allocate(Math.Max(required + BufferSlack, _bufferSize * 2));
-        }
-
-        throw new Win32Exception(
-            (int)NtDll.RtlNtStatusToDosError(NtDll.StatusInfoLengthMismatch),
-            "Process information buffer kept growing; giving up.");
-    }
-
-    /// <summary>
-    /// Replaces the native buffer with a new one of the given size.
-    /// </summary>
-    /// <param name="size">The new size in bytes.</param>
-    private unsafe void Allocate(uint size)
-    {
-        FreeBuffer();
-        _buffer = NativeMemory.Alloc(size);
-        _bufferSize = size;
-    }
-
-    /// <summary>
-    /// Frees the native buffer if allocated.
-    /// </summary>
-    private unsafe void FreeBuffer()
-    {
-        if (_buffer is not null)
-        {
-            NativeMemory.Free(_buffer);
-            _buffer = null;
-            _bufferSize = 0;
+            throw new Win32Exception((int)NtDll.RtlNtStatusToDosError(status));
         }
     }
 
     /// <summary>
-    /// Converts the chain of native records into process samples.
+    /// Enumerates the chain of process records in a filled buffer.
     /// </summary>
-    /// <param name="buffer">The filled native buffer.</param>
-    /// <returns>The samples in kernel enumeration order.</returns>
-    private static unsafe List<ProcessSample> Parse(byte* buffer)
+    /// <param name="buffer">The start of the buffer.</param>
+    /// <returns>Addresses of each <see cref="SystemProcessInformation"/> record, valid while the buffer is unchanged.</returns>
+    internal static unsafe List<nint> EnumerateRecordAddresses(byte* buffer)
     {
-        var result = new List<ProcessSample>(capacity: 512);
+        var result = new List<nint>(capacity: 512);
         var offset = 0L;
-
         while (true)
         {
             var info = (SystemProcessInformation*)(buffer + offset);
-            result.Add(ToSample(in *info));
+            result.Add((nint)info);
 
             if (info->NextEntryOffset == 0)
             {
-                break;
+                return result;
             }
 
             offset += info->NextEntryOffset;
         }
-
-        return result;
     }
+
+    /// <summary>
+    /// Converts a FILETIME tick count into a UTC timestamp.
+    /// </summary>
+    /// <param name="fileTime">100 ns ticks since 1601-01-01 UTC.</param>
+    /// <returns>The timestamp.</returns>
+    internal static DateTimeOffset FromFileTime(long fileTime) => new(DateTime.FromFileTimeUtc(fileTime));
 
     /// <summary>
     /// Converts one native record into a process sample.
@@ -205,7 +148,7 @@ public sealed class NtProcessSnapshotProvider(TimeProvider timeProvider) : IProc
             Pid = pid,
             ParentPid = (int)info.InheritedFromUniqueProcessId,
             Name = pid == 0 && name.Length == 0 ? IdleProcessName : name,
-            CreateTime = new DateTimeOffset(DateTime.FromFileTimeUtc(info.CreateTime)),
+            CreateTime = FromFileTime(info.CreateTime),
             KernelTime = TimeSpan.FromTicks(info.KernelTime),
             UserTime = TimeSpan.FromTicks(info.UserTime),
             WorkingSetBytes = (long)info.WorkingSetSize,
