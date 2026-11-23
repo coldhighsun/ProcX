@@ -74,7 +74,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" />
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/ProcX.ico" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <!-- Toolbar -->
         <DockPanel Grid.Row="1" Margin="12,4,12,8" LastChildFill="False">

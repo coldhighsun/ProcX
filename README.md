@@ -21,8 +21,8 @@ Each release has three files:
 | File | Needs .NET installed? | Notes |
 | --- | --- | --- |
 | `ProcX-<version>-win-x64-setup.exe` | No | Installer with Start menu entry and uninstaller |
-| `ProcX-<version>-win-x64-self-contained.zip` | No | Portable single `ProcX.exe`; the first start unpacks about 150 MB to `%TEMP%\.net` and takes longer |
-| `ProcX-<version>-win-x64-framework-dependent.zip` | Yes, [.NET 11 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) | Portable single `ProcX.exe`, about 8 MB |
+| `ProcX-<version>-win-x64-self-contained.zip` | No | Portable folder, no runtime needed |
+| `ProcX-<version>-win-x64-framework-dependent.zip` | Yes, [.NET 11 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) | Portable folder |
 
 `SHA256SUMS.txt` lists the checksums. The binaries are not code-signed, so Windows SmartScreen may warn on first run.
 
@@ -68,7 +68,7 @@ dotnet run --project src/ProcX.App
 
 The installer is built with [Inno Setup 7](https://jrsoftware.org/isinfo.php)
 (`winget install JRSoftware.InnoSetup.7`); pass `-IsccPath` if `ISCC.exe` is not in a default location.
-The version comes from `Directory.Build.props`.
+The version comes from the latest git tag `v<major>.<minor>.<patch>` via [MinVer](https://github.com/adamralph/minver); untagged commits get a `-preview.0.<height>` suffix.
 
 ## Project layout
 

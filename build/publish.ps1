@@ -6,14 +6,14 @@
     Output goes to artifacts/<version>/:
       ProcX-<version>-<rid>-framework-dependent.zip   needs the .NET Desktop Runtime installed
       ProcX-<version>-<rid>-self-contained.zip        runs without any runtime installed
-      ProcX-<version>-<rid>-setup.exe                 installer (bundles the self-contained build, multi-file)
+      ProcX-<version>-<rid>-setup.exe                 installer (bundles the self-contained build)
     Each is accompanied by a SHA256SUMS.txt.
 
 .PARAMETER Runtime
     Runtime identifier: win-x64 (default) or win-arm64.
 
 .PARAMETER Version
-    Release version. Defaults to <Version> in Directory.Build.props.
+    Release version. Defaults to the version MinVer derives from the git tags (v<major>.<minor>.<patch>).
 
 .PARAMETER IsccPath
     Path to ISCC.exe of Inno Setup 7. Defaults to the winget per-user install, then PATH.
@@ -37,10 +37,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'src\ProcX.App\ProcX.App.csproj'
 
 if (-not $Version) {
-    $props = [xml](Get-Content (Join-Path $root 'Directory.Build.props'))
-    $node = $props.SelectSingleNode('/Project/PropertyGroup/Version')
-    if (-not $node) { throw 'No <Version> found in Directory.Build.props; pass -Version.' }
-    $Version = $node.InnerText.Trim()
+    $Version = (& dotnet msbuild $project -restore -nologo -t:MinVer -getProperty:MinVerVersion | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $Version) { throw 'MinVer could not determine the version; pass -Version.' }
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
     throw "Version '$Version' is not a valid semantic version."
@@ -53,7 +51,7 @@ if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory -Path $out, $work | Out-Null
 
 function Publish-Variant {
-    param([string]$Name, [bool]$SelfContained, [bool]$SingleFile)
+    param([string]$Name, [bool]$SelfContained)
 
     $dir = Join-Path $work $Name
     Write-Host "== Publishing $Name ($Runtime) ==" -ForegroundColor Cyan
@@ -65,16 +63,11 @@ function Publish-Variant {
         '-o', $dir,
         "-p:Version=$Version",
         "-p:SelfContained=$($SelfContained.ToString().ToLowerInvariant())",
-        "-p:PublishSingleFile=$($SingleFile.ToString().ToLowerInvariant())",
         '-p:DebugType=none',
         '-p:DebugSymbols=false',
         # The XML documentation files are only useful at build time.
         '-p:GenerateDocumentationFile=false'
     )
-
-    # A self-contained single file must extract everything on first run: WPF's DirectWriteForwarder.dll is a
-    # mixed-mode assembly that cannot be loaded from inside the bundle (BadImageFormatException).
-    if ($SelfContained -and $SingleFile) { $args += '-p:IncludeAllContentForSelfExtract=true' }
 
     # Output goes to the host, not the pipeline: this function's return value must be only the folder path.
     & dotnet @args | Out-Host
@@ -93,10 +86,10 @@ function New-ZipOf {
     Write-Host ("   {0} ({1:N1} MB)" -f (Split-Path -Leaf $ZipPath), ((Get-Item $ZipPath).Length / 1MB))
 }
 
-$frameworkDependent = Publish-Variant -Name 'framework-dependent' -SelfContained $false -SingleFile $true
+$frameworkDependent = Publish-Variant -Name 'framework-dependent' -SelfContained $false
 New-ZipOf $frameworkDependent (Join-Path $out "ProcX-$Version-$Runtime-framework-dependent.zip")
 
-$selfContained = Publish-Variant -Name 'self-contained' -SelfContained $true -SingleFile $true
+$selfContained = Publish-Variant -Name 'self-contained' -SelfContained $true
 New-ZipOf $selfContained (Join-Path $out "ProcX-$Version-$Runtime-self-contained.zip")
 
 if (-not $SkipInstaller) {
@@ -116,15 +109,11 @@ if (-not $SkipInstaller) {
         throw 'Inno Setup 7 (ISCC.exe) was not found. Install it (winget install JRSoftware.InnoSetup.7) or pass -IsccPath.'
     }
 
-    # The installer ships the self-contained build as a folder rather than a single file: it starts in about
-    # two seconds on first run, whereas the single file first extracts ~150 MB to %TEMP% (about 15 seconds).
-    $installerSource = Publish-Variant -Name 'installer-payload' -SelfContained $true -SingleFile $false
-
     Write-Host "== Building installer with $IsccPath ==" -ForegroundColor Cyan
     $arch = if ($Runtime -eq 'win-arm64') { 'arm64' } else { 'x64compatible' }
     & $IsccPath (Join-Path $PSScriptRoot 'installer\ProcX.iss') `
         "/DAppVersion=$Version" `
-        "/DSourceDir=$installerSource" `
+        "/DSourceDir=$selfContained" `
         "/DOutputDir=$out" `
         "/DOutputBaseName=ProcX-$Version-$Runtime-setup" `
         "/DArchitecture=$arch" | Out-Host

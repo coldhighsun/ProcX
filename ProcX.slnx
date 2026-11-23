@@ -9,6 +9,9 @@
     <File Path="build/publish.ps1" />
     <File Path="build/installer/ProcX.iss" />
   </Folder>
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ProcX.App/ProcX.App.csproj" />
     <Project Path="src/ProcX.Application/ProcX.Application.csproj" />
