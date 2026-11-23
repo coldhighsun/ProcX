@@ -11,10 +11,10 @@ public partial class MainWindow : FluentWindow
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// </summary>
-    /// <param name="processList">The process list view model.</param>
-    public MainWindow(ProcessListViewModel processList)
+    /// <param name="viewModel">The main window view model.</param>
+    public MainWindow(MainWindowViewModel viewModel)
     {
-        DataContext = processList;
+        DataContext = viewModel;
         InitializeComponent();
     }
 }

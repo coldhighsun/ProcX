@@ -7,8 +7,8 @@
                  xmlns:conv="clr-namespace:ProcX.App.Converters"
                  xmlns:vm="clr-namespace:ProcX.App.ViewModels"
                  mc:Ignorable="d"
-                 d:DataContext="{d:DesignInstance Type=vm:ProcessListViewModel}"
-                 Title="ProcX"
+                 d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
+                 Title="{Binding Title}"
                  Width="1200"
                  Height="720"
                  MinWidth="640"
@@ -18,6 +18,7 @@
                  WindowStartupLocation="CenterScreen">
     <ui:FluentWindow.Resources>
         <conv:ByteSizeConverter x:Key="ByteSize" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
         <Style x:Key="RightAligned" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -33,24 +34,38 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="ProcX" />
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" />
 
         <!-- Toolbar -->
         <DockPanel Grid.Row="1" Margin="12,4,12,8" LastChildFill="False">
             <ui:TextBox DockPanel.Dock="Left"
                         Width="320"
                         PlaceholderText="Search by name, PID, user or path"
-                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
+                        Text="{Binding Processes.SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
                         ClearButtonEnabled="True"
                         Icon="{ui:SymbolIcon Search24}" />
+
+            <ui:Button DockPanel.Dock="Right"
+                       Margin="8,0,0,0"
+                       Content="End task"
+                       Appearance="Danger"
+                       Icon="{ui:SymbolIcon Dismiss24}"
+                       ToolTip="End the selected process (Del)"
+                       Command="{Binding EndTaskCommand}" />
+            <ui:Button DockPanel.Dock="Right"
+                       Content="Run as administrator"
+                       Icon="{ui:SymbolIcon ShieldKeyhole24}"
+                       ToolTip="Restart ProcX with administrator rights to see and manage all processes"
+                       Command="{Binding RestartAsAdministratorCommand}"
+                       Visibility="{Binding CanElevate, Converter={StaticResource BoolToVisibility}}" />
         </DockPanel>
 
         <!-- Process list -->
         <DataGrid Grid.Row="2"
                   x:Name="ProcessGrid"
                   Margin="12,0,12,0"
-                  ItemsSource="{Binding View}"
-                  SelectedItem="{Binding SelectedRow}"
+                  ItemsSource="{Binding Processes.View}"
+                  SelectedItem="{Binding Processes.SelectedRow}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   SelectionMode="Single"
@@ -67,6 +82,20 @@
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   VirtualizingPanel.ScrollUnit="Pixel">
+            <DataGrid.InputBindings>
+                <KeyBinding Key="Delete" Command="{Binding EndTaskCommand}" />
+                <KeyBinding Key="Delete" Modifiers="Shift" Command="{Binding EndProcessTreeCommand}" />
+            </DataGrid.InputBindings>
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="End task" InputGestureText="Del" Command="{Binding EndTaskCommand}" />
+                    <MenuItem Header="End process tree" InputGestureText="Shift+Del" Command="{Binding EndProcessTreeCommand}" />
+                    <Separator />
+                    <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />
+                    <MenuItem Header="Copy PID" Command="{Binding CopyPidCommand}" />
+                    <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" />
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="Name" Width="220" SortMemberPath="Name">
                     <DataGridTemplateColumn.CellTemplate>
@@ -78,23 +107,23 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="PID" Width="70" Binding="{Binding Pid}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="PID" Width="90" Binding="{Binding Pid}" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="Description" Width="240" Binding="{Binding Description}" />
-                <DataGridTextColumn Header="CPU %" Width="80" Binding="{Binding CpuPercent, StringFormat=0.0}" ElementStyle="{StaticResource RightAligned}" />
-                <DataGridTextColumn Header="Memory" Width="100" Binding="{Binding MemoryBytes, Converter={StaticResource ByteSize}}" SortMemberPath="MemoryBytes" ElementStyle="{StaticResource RightAligned}" />
-                <DataGridTextColumn Header="Commit" Width="100" Binding="{Binding CommitBytes, Converter={StaticResource ByteSize}}" SortMemberPath="CommitBytes" ElementStyle="{StaticResource RightAligned}" />
-                <DataGridTextColumn Header="Threads" Width="85" Binding="{Binding ThreadCount}" ElementStyle="{StaticResource RightAligned}" />
-                <DataGridTextColumn Header="Handles" Width="90" Binding="{Binding HandleCount}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="CPU %" Width="95" Binding="{Binding CpuPercent, StringFormat=0.0}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Memory" Width="110" Binding="{Binding MemoryBytes, Converter={StaticResource ByteSize}}" SortMemberPath="MemoryBytes" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Commit" Width="110" Binding="{Binding CommitBytes, Converter={StaticResource ByteSize}}" SortMemberPath="CommitBytes" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Threads" Width="100" Binding="{Binding ThreadCount}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Handles" Width="100" Binding="{Binding HandleCount}" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="User" Width="120" Binding="{Binding UserName}" />
-                <DataGridTextColumn Header="Session" Width="85" Binding="{Binding SessionId}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Session" Width="95" Binding="{Binding SessionId}" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="Path" Width="*" MinWidth="200" Binding="{Binding ImagePath}" />
             </DataGrid.Columns>
         </DataGrid>
 
         <!-- Status bar -->
         <StackPanel Grid.Row="3" Margin="16,6" Orientation="Horizontal">
-            <TextBlock Text="{Binding ProcessCount, StringFormat=Processes: {0}}" />
-            <TextBlock Margin="24,0,0,0" Text="{Binding TotalCpuPercent, StringFormat=CPU: {0:0}%}" />
+            <TextBlock Text="{Binding Processes.ProcessCount, StringFormat=Processes: {0}}" />
+            <TextBlock Margin="24,0,0,0" Text="{Binding Processes.TotalCpuPercent, StringFormat=CPU: {0:0}%}" />
         </StackPanel>
     </Grid>
 </ui:FluentWindow>

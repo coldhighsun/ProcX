@@ -4,7 +4,9 @@ using Microsoft.Extensions.Hosting;
 using ProcX.App.Services;
 using ProcX.App.ViewModels;
 using ProcX.Application.Processes;
+using ProcX.Application.Security;
 using ProcX.Infrastructure.Processes;
+using ProcX.Infrastructure.Security;
 
 namespace ProcX.App;
 
@@ -25,13 +27,18 @@ public partial class App : System.Windows.Application
             services.AddSingleton<IProcessSnapshotProvider, NtProcessSnapshotProvider>();
             services.AddSingleton<ISystemInformation, WindowsSystemInformation>();
             services.AddSingleton<IProcessInfoProvider, Win32ProcessInfoProvider>();
+            services.AddSingleton<IProcessController, Win32ProcessController>();
+            services.AddSingleton<IElevationService, WindowsElevationService>();
 
             // Application
             services.AddSingleton<ProcessMonitor>();
             services.AddSingleton<ProcessInfoCache>();
+            services.AddSingleton<ProcessTerminator>();
 
             // Presentation
             services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+            services.AddSingleton<IShellInteraction, WpfShellInteraction>();
+            services.AddSingleton<MainWindowViewModel>();
             services.AddSingleton<ProcessIconProvider>();
             services.AddSingleton<IProcessRowEnricher, ProcessRowEnricher>();
             services.AddSingleton<ProcessListViewModel>();
