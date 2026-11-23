@@ -65,6 +65,19 @@ public class ProcessListViewModelTreeTests
     }
 
     [Fact]
+    public void ToggleExpand_RootWithExpandedChild_HidesAllDescendants()
+    {
+        // Arrange
+        _viewModel.IsTreeView = true;
+
+        // Act
+        _viewModel.ToggleExpandCommand.Execute(Row(1));
+
+        // Assert
+        Visible().Select(static r => r.Pid).Should().Equal(1, 5);
+    }
+
+    [Fact]
     public void CollapseAll_InTreeMode_ShowsOnlyRoots()
     {
         // Arrange
@@ -130,6 +143,20 @@ public class ProcessListViewModelTreeTests
 
         // Assert
         Visible().Select(static r => r.Pid).Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public void ToggleExpand_WhileSearching_HidesMatchesUnderCollapsedRow()
+    {
+        // Arrange
+        _viewModel.IsTreeView = true;
+        _viewModel.SearchText = ".exe";
+
+        // Act
+        _viewModel.ToggleExpandCommand.Execute(Row(2));
+
+        // Assert
+        Visible().Select(static r => r.Pid).Should().Equal(1, 2, 4, 5);
     }
 
     [Fact]

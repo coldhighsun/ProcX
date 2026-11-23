@@ -62,6 +62,8 @@ public sealed partial class ProcessListViewModel : ObservableObject
     /// </summary>
     private List<ProcessRowViewModel> _treeOrder = [];
 
+    private Dictionary<ProcessRowViewModel, bool>? _preSearchExpanded;
+
     /// <summary>
     /// The flat-mode sort to restore when leaving tree mode.
     /// </summary>
@@ -198,6 +200,7 @@ public sealed partial class ProcessListViewModel : ObservableObject
 
         row.IsExpanded = !row.IsExpanded;
         UpdateTreeVisibility();
+        RefreshFilter();
     }
 
     /// <summary>
@@ -224,6 +227,7 @@ public sealed partial class ProcessListViewModel : ObservableObject
         }
 
         UpdateTreeVisibility();
+        RefreshFilter();
     }
 
     /// <summary>
@@ -283,22 +287,17 @@ public sealed partial class ProcessListViewModel : ObservableObject
             return;
         }
 
+        // While searching, only matches and their ancestors are candidates; collapsing still hides descendants.
+        HashSet<ProcessRowViewModel>? candidates = null;
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            var visible = new HashSet<ProcessRowViewModel>();
+            candidates = [];
             foreach (var row in _treeOrder.Where(r => ProcessRowFilter.Matches(r, SearchText)))
             {
-                for (var current = row; current is not null && visible.Add(current); current = current.TreeParent)
+                for (var current = row; current is not null && candidates.Add(current); current = current.TreeParent)
                 {
                 }
             }
-
-            foreach (var row in _treeOrder)
-            {
-                row.IsTreeVisible = visible.Contains(row);
-            }
-
-            return;
         }
 
         // Rows deeper than a collapsed ancestor are hidden until the walk returns to that ancestor's depth.
@@ -312,7 +311,7 @@ public sealed partial class ProcessListViewModel : ObservableObject
             }
 
             hiddenBelowDepth = int.MaxValue;
-            row.IsTreeVisible = true;
+            row.IsTreeVisible = candidates is null || candidates.Contains(row);
             if (row.HasChildren && !row.IsExpanded)
             {
                 hiddenBelowDepth = row.Depth;
@@ -343,6 +342,7 @@ public sealed partial class ProcessListViewModel : ObservableObject
             }
 
             _treeOrder = [];
+            _preSearchExpanded = null;
 
             if (!_isLeavingTreeForUserSort)
             {
@@ -359,8 +359,45 @@ public sealed partial class ProcessListViewModel : ObservableObject
     /// <param name="value">The new search text.</param>
     partial void OnSearchTextChanged(string value)
     {
+        UpdateSearchExpansion();
         UpdateTreeVisibility();
         RefreshFilter();
+    }
+
+    /// <summary>
+    /// While searching in tree mode, expands the ancestors of matches so they are reachable (and collapsible);
+    /// the expanded state from before the search is restored when the search is cleared.
+    /// </summary>
+    private void UpdateSearchExpansion()
+    {
+        if (!IsTreeView)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            if (_preSearchExpanded is not null)
+            {
+                foreach (var (row, expanded) in _preSearchExpanded)
+                {
+                    row.IsExpanded = expanded;
+                }
+
+                _preSearchExpanded = null;
+            }
+
+            return;
+        }
+
+        _preSearchExpanded ??= _rows.ToDictionary(static r => r, static r => r.IsExpanded);
+        foreach (var row in _treeOrder.Where(r => ProcessRowFilter.Matches(r, SearchText)))
+        {
+            for (var parent = row.TreeParent; parent is not null; parent = parent.TreeParent)
+            {
+                parent.IsExpanded = true;
+            }
+        }
     }
 
     /// <summary>
