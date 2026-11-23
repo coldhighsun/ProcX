@@ -6,6 +6,8 @@
     <File Path="global.json" />
     <File Path="nuget.config" />
     <File Path="README.md" />
+    <File Path="build/publish.ps1" />
+    <File Path="build/installer/ProcX.iss" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ProcX.App/ProcX.App.csproj" />
