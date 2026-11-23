@@ -36,4 +36,20 @@ public static class ProcessPriorityExtensions
         ProcessPriority.Realtime => 24,
         _ => throw new ArgumentOutOfRangeException(nameof(priority), priority, null),
     };
+
+    /// <summary>
+    /// Gets the name Windows tools such as Task Manager show for the priority class.
+    /// </summary>
+    /// <param name="priority">The priority class.</param>
+    /// <returns>The display name, e.g. <c>Low</c> for <see cref="ProcessPriority.Idle"/>.</returns>
+    public static string ToDisplayName(this ProcessPriority priority) => priority switch
+    {
+        ProcessPriority.Realtime => "Realtime",
+        ProcessPriority.High => "High",
+        ProcessPriority.AboveNormal => "Above normal",
+        ProcessPriority.Normal => "Normal",
+        ProcessPriority.BelowNormal => "Below normal",
+        ProcessPriority.Idle => "Low",
+        _ => priority.ToString(),
+    };
 }

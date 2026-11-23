@@ -48,4 +48,20 @@ public class ProcessPriorityExtensionsTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Theory]
+    [InlineData(ProcessPriority.Idle, "Low")]
+    [InlineData(ProcessPriority.BelowNormal, "Below normal")]
+    [InlineData(ProcessPriority.Normal, "Normal")]
+    [InlineData(ProcessPriority.AboveNormal, "Above normal")]
+    [InlineData(ProcessPriority.High, "High")]
+    [InlineData(ProcessPriority.Realtime, "Realtime")]
+    public void ToDisplayName_Class_MatchesWindowsToolNames(ProcessPriority priority, string expected)
+    {
+        // Act
+        var result = priority.ToDisplayName();
+
+        // Assert
+        result.Should().Be(expected);
+    }
 }
