@@ -9,3 +9,13 @@ TOKEN_USER
 WIN32_ERROR
 TerminateProcess
 GetExitCodeProcess
+IsWow64Process2
+IMAGE_FILE_MACHINE
+TOKEN_ELEVATION
+TOKEN_MANDATORY_LABEL
+OpenThread
+QueryDosDevice
+CreateToolhelp32Snapshot
+Module32FirstW
+Module32NextW
+MODULEENTRY32W

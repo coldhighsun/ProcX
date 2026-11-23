@@ -52,7 +52,7 @@ public sealed class Win32ProcessInfoProvider : IProcessInfoProvider
     /// </summary>
     /// <param name="process">The process handle.</param>
     /// <returns>The path, or <see langword="null"/> if it cannot be queried (e.g. for the System process).</returns>
-    private static string? GetImagePath(SafeFileHandle process)
+    internal static string? GetImagePath(SafeFileHandle process)
     {
         Span<char> buffer = stackalloc char[260];
         var size = (uint)buffer.Length;
