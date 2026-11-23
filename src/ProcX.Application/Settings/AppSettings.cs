@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ProcX.Application.Processes;
 
 namespace ProcX.Application.Settings;
@@ -49,6 +50,12 @@ public sealed record AppSettings
     public bool TreeView { get; init; }
 
     /// <summary>
+    /// Gets the columns of the process list the user has hidden; new columns are therefore visible by default.
+    /// </summary>
+    [JsonConverter(typeof(ProcessColumnsJsonConverter))]
+    public ProcessColumns HiddenColumns { get; init; } = ProcessColumns.None;
+
+    /// <summary>
     /// Returns a copy whose values are within their valid ranges, e.g. after loading a hand-edited file.
     /// </summary>
     /// <returns>The sanitized settings.</returns>
@@ -59,5 +66,6 @@ public sealed record AppSettings
             RefreshInterval.Ticks,
             ProcessMonitor.MinimumInterval.Ticks,
             ProcessMonitor.MaximumInterval.Ticks)),
+        HiddenColumns = HiddenColumns & ProcessColumns.All,
     };
 }

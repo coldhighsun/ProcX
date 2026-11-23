@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProcX.App.Services;
 using ProcX.Application.Processes;
+using ProcX.Application.Settings;
 using ProcX.Domain.Processes;
 
 namespace ProcX.App.ViewModels;
@@ -36,6 +37,24 @@ public sealed partial class ProcessListViewModel : ObservableObject
         nameof(ProcessRowViewModel.Priority),
         nameof(ProcessRowViewModel.TreeOrder),
     ];
+
+    /// <summary>
+    /// The optional column each sortable row property is shown in.
+    /// </summary>
+    private static readonly Dictionary<string, ProcessColumns> SortColumns = new()
+    {
+        [nameof(ProcessRowViewModel.Pid)] = ProcessColumns.Pid,
+        [nameof(ProcessRowViewModel.Description)] = ProcessColumns.Description,
+        [nameof(ProcessRowViewModel.CpuPercent)] = ProcessColumns.Cpu,
+        [nameof(ProcessRowViewModel.MemoryBytes)] = ProcessColumns.Memory,
+        [nameof(ProcessRowViewModel.CommitBytes)] = ProcessColumns.Commit,
+        [nameof(ProcessRowViewModel.ThreadCount)] = ProcessColumns.Threads,
+        [nameof(ProcessRowViewModel.HandleCount)] = ProcessColumns.Handles,
+        [nameof(ProcessRowViewModel.Priority)] = ProcessColumns.Priority,
+        [nameof(ProcessRowViewModel.UserName)] = ProcessColumns.User,
+        [nameof(ProcessRowViewModel.SessionId)] = ProcessColumns.Session,
+        [nameof(ProcessRowViewModel.ImagePath)] = ProcessColumns.Path,
+    };
 
     /// <summary>
     /// The sort applied in tree mode.
@@ -124,6 +143,12 @@ public sealed partial class ProcessListViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     public partial bool IsTreeView { get; set; }
+
+    /// <summary>
+    /// Gets or sets the columns the user has hidden.
+    /// </summary>
+    [ObservableProperty]
+    public partial ProcessColumns HiddenColumns { get; set; }
 
     /// <summary>
     /// Gets or sets the selected row.
@@ -409,6 +434,28 @@ public sealed partial class ProcessListViewModel : ObservableObject
         if (!View.NeedsRefresh)
         {
             View.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// Falls back to the default sort when a hidden column was the one sorted on, since the user can no longer see it.
+    /// </summary>
+    /// <param name="value">The columns now hidden.</param>
+    partial void OnHiddenColumnsChanged(ProcessColumns value)
+    {
+        static bool IsHidden(SortDescription sort, ProcessColumns hidden) =>
+            SortColumns.TryGetValue(sort.PropertyName, out var column) && hidden.HasFlag(column);
+
+        SortDescription[] fallback = [new(nameof(ProcessRowViewModel.Name), ListSortDirection.Ascending)];
+
+        if (IsTreeView)
+        {
+            // The flat sort is only stored while in tree mode; it is restored when leaving it.
+            _flatSort = _flatSort.Any(s => IsHidden(s, value)) ? fallback : _flatSort;
+        }
+        else if (View.SortDescriptions.Any(s => IsHidden(s, value)))
+        {
+            ApplySort(fallback);
         }
     }
 

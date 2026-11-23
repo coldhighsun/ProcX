@@ -62,6 +62,33 @@ public class SettingsBinderTests
     }
 
     [Fact]
+    public void Start_StoredHiddenColumns_AreAppliedWithoutBeingWrittenBack()
+    {
+        // Arrange
+        _store.SaveCount = 0;
+
+        // Act
+        var (_, main) = Start(new AppSettings { HiddenColumns = ProcessColumns.Pid | ProcessColumns.Path });
+
+        // Assert
+        main.Processes.HiddenColumns.Should().Be(ProcessColumns.Pid | ProcessColumns.Path);
+        _store.SaveCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void HiddenColumns_ChangedInMainWindow_ArePersisted()
+    {
+        // Arrange
+        var (_, main) = Start(new AppSettings());
+
+        // Act
+        main.Processes.HiddenColumns = ProcessColumns.Memory;
+
+        // Assert
+        _store.Saved.HiddenColumns.Should().Be(ProcessColumns.Memory);
+    }
+
+    [Fact]
     public void ViewOptions_ToggledInMainWindow_ArePersisted()
     {
         // Arrange

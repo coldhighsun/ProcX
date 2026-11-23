@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows.Threading;
 using ProcX.App.Services;
 using ProcX.App.ViewModels;
+using ProcX.Application.Settings;
 
 namespace ProcX.App.Tests.ViewModels;
 
@@ -92,6 +93,34 @@ public class ProcessListViewModelTests
         // Assert
         _viewModel.View.Cast<ProcessRowViewModel>().Select(static r => r.Name).Should().Equal("a.exe", "b.exe");
         _viewModel.View.LiveSortingProperties.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void HiddenColumns_SortedColumnHidden_FallsBackToNameSort()
+    {
+        // Arrange
+        _viewModel.View.SortDescriptions.Clear();
+        _viewModel.View.SortDescriptions.Add(new SortDescription(nameof(ProcessRowViewModel.CpuPercent), ListSortDirection.Descending));
+
+        // Act
+        _viewModel.HiddenColumns = ProcessColumns.Cpu;
+
+        // Assert
+        _viewModel.View.SortDescriptions.Should().Equal(new SortDescription(nameof(ProcessRowViewModel.Name), ListSortDirection.Ascending));
+    }
+
+    [Fact]
+    public void HiddenColumns_OtherColumnHidden_KeepsSort()
+    {
+        // Arrange
+        _viewModel.View.SortDescriptions.Clear();
+        _viewModel.View.SortDescriptions.Add(new SortDescription(nameof(ProcessRowViewModel.CpuPercent), ListSortDirection.Descending));
+
+        // Act
+        _viewModel.HiddenColumns = ProcessColumns.Pid;
+
+        // Assert
+        _viewModel.View.SortDescriptions.Single().PropertyName.Should().Be(nameof(ProcessRowViewModel.CpuPercent));
     }
 
     [Fact]
