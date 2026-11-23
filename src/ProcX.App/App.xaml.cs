@@ -7,7 +7,7 @@ namespace ProcX.App;
 /// <summary>
 /// Application entry point; owns the generic host that composes all services.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     /// <summary>
     /// The generic host providing dependency injection, logging and configuration.
