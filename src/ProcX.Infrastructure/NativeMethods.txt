@@ -1,2 +1,9 @@
 GetActiveProcessorCount
 ALL_PROCESSOR_GROUPS
+OpenProcess
+OpenProcessToken
+GetProcessTimes
+GetTokenInformation
+QueryFullProcessImageName
+TOKEN_USER
+WIN32_ERROR
