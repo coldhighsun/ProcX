@@ -20,8 +20,69 @@ public sealed partial class ProcessRowViewModel : ObservableObject
 
         Key = metrics.Key;
         Name = metrics.Sample.Name;
+        Sample = metrics.Sample;
         Update(metrics);
     }
+
+    /// <summary>
+    /// Gets the latest raw sample, used to rebuild the process tree.
+    /// </summary>
+    public ProcessSample Sample { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the position of the row in the depth-first tree order.
+    /// </summary>
+    [ObservableProperty]
+    public partial int TreeOrder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the nesting depth in the tree; 0 outside tree mode.
+    /// </summary>
+    [ObservableProperty]
+    public partial int Depth { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the row is presented as part of a tree.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NodeKind))]
+    public partial bool IsInTree { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the process has child processes.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NodeKind))]
+    public partial bool HasChildren { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the children of the process are shown in tree mode.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NodeKind))]
+    public partial bool IsExpanded { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the row is shown in tree mode (not hidden by a collapsed ancestor or the search).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsTreeVisible { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the parent row in the current tree, or <see langword="null"/> for roots and outside tree mode.
+    /// </summary>
+    public ProcessRowViewModel? TreeParent { get; set; }
+
+    /// <summary>
+    /// Gets how the row is presented in the tree.
+    /// </summary>
+    public TreeNodeKind NodeKind => (IsInTree, HasChildren, IsExpanded) switch
+    {
+        (false, _, _) => TreeNodeKind.None,
+        (true, false, _) => TreeNodeKind.Leaf,
+        (true, true, true) => TreeNodeKind.Expanded,
+        (true, true, false) => TreeNodeKind.Collapsed,
+    };
 
     /// <summary>
     /// Gets the stable identity of the process.
@@ -123,6 +184,7 @@ public sealed partial class ProcessRowViewModel : ObservableObject
         }
 
         var sample = metrics.Sample;
+        Sample = sample;
         CpuPercent = metrics.CpuPercent;
         MemoryBytes = sample.PrivateWorkingSetBytes;
         CommitBytes = sample.PrivateBytes;

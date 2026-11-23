@@ -19,6 +19,42 @@
     <ui:FluentWindow.Resources>
         <conv:ByteSizeConverter x:Key="ByteSize" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:DepthToIndentConverter x:Key="DepthIndent" />
+
+        <!-- Expand/collapse chevron of a tree row; reserves its space on leaves so names stay aligned. -->
+        <Style x:Key="TreeExpander" TargetType="Button">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ui:SymbolIcon x:Name="Glyph" FontSize="12" Symbol="ChevronDown24" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding NodeKind}" Value="{x:Static vm:TreeNodeKind.Collapsed}">
+                                <Setter TargetName="Glyph" Property="Symbol" Value="ChevronRight24" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding NodeKind}" Value="{x:Static vm:TreeNodeKind.Leaf}">
+                    <Setter Property="Visibility" Value="Hidden" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding NodeKind}" Value="{x:Static vm:TreeNodeKind.Collapsed}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding NodeKind}" Value="{x:Static vm:TreeNodeKind.Expanded}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
 
         <Style x:Key="RightAligned" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -44,6 +80,13 @@
                         Text="{Binding Processes.SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
                         ClearButtonEnabled="True"
                         Icon="{ui:SymbolIcon Search24}" />
+
+            <ui:ToggleSwitch DockPanel.Dock="Left"
+                             Margin="16,0,0,0"
+                             VerticalAlignment="Center"
+                             Content="Tree view"
+                             ToolTip="Show processes as a parent/child tree. Sorting by a column returns to the flat list."
+                             IsChecked="{Binding Processes.IsTreeView}" />
 
             <ui:Button DockPanel.Dock="Right"
                        Margin="8,0,0,0"
@@ -94,13 +137,23 @@
                     <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />
                     <MenuItem Header="Copy PID" Command="{Binding CopyPidCommand}" />
                     <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" />
+                    <Separator Visibility="{Binding Processes.IsTreeView, Converter={StaticResource BoolToVisibility}}" />
+                    <MenuItem Header="Expand all"
+                              Command="{Binding Processes.ExpandAllCommand}"
+                              Visibility="{Binding Processes.IsTreeView, Converter={StaticResource BoolToVisibility}}" />
+                    <MenuItem Header="Collapse all"
+                              Command="{Binding Processes.CollapseAllCommand}"
+                              Visibility="{Binding Processes.IsTreeView, Converter={StaticResource BoolToVisibility}}" />
                 </ContextMenu>
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Name" Width="220" SortMemberPath="Name">
+                <DataGridTemplateColumn Header="Name" Width="260" SortMemberPath="Name">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="vm:ProcessRowViewModel">
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Margin="{Binding Depth, Converter={StaticResource DepthIndent}}">
+                                <Button Style="{StaticResource TreeExpander}"
+                                        Command="{Binding DataContext.Processes.ToggleExpandCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
                                 <Image Width="16" Height="16" Margin="0,0,8,0" Source="{Binding Icon}" />
                                 <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
                             </StackPanel>

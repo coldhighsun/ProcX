@@ -20,14 +20,22 @@ internal static class Rows
     /// <param name="name">The image name.</param>
     /// <param name="cpu">The CPU usage in percent.</param>
     /// <param name="memory">The private working set in bytes.</param>
+    /// <param name="parentPid">The parent process ID.</param>
+    /// <param name="createdAfterSeconds">Creation time offset from the base time, in seconds.</param>
     /// <returns>The metrics.</returns>
-    public static ProcessMetrics Metrics(int pid, string? name = null, double cpu = 0, long memory = 0) => new(
+    public static ProcessMetrics Metrics(
+        int pid,
+        string? name = null,
+        double cpu = 0,
+        long memory = 0,
+        int parentPid = 0,
+        int createdAfterSeconds = 0) => new(
         new ProcessSample
         {
             Pid = pid,
-            ParentPid = 0,
+            ParentPid = parentPid,
             Name = name ?? $"p{pid}.exe",
-            CreateTime = BaseTime,
+            CreateTime = BaseTime.AddSeconds(createdAfterSeconds),
             PrivateWorkingSetBytes = memory,
         },
         cpu);
