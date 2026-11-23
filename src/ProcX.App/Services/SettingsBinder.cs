@@ -75,6 +75,7 @@ public sealed class SettingsBinder
             _monitor.Interval = settings.RefreshInterval;
             _main.IsDetailsVisible = settings.ShowDetails;
             _main.Processes.IsTreeView = settings.TreeView;
+            _main.Processes.HiddenColumns = settings.HiddenColumns;
         }
         finally
         {
@@ -105,6 +106,10 @@ public sealed class SettingsBinder
         if (!_isApplying && e.PropertyName == nameof(ProcessListViewModel.IsTreeView))
         {
             _settings.Update(s => s with { TreeView = _main.Processes.IsTreeView });
+        }
+        else if (!_isApplying && e.PropertyName == nameof(ProcessListViewModel.HiddenColumns))
+        {
+            _settings.Update(s => s with { HiddenColumns = _main.Processes.HiddenColumns });
         }
     }
 }

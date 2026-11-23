@@ -37,6 +37,58 @@ public sealed class JsonSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Save_ThenLoad_RoundTripsHiddenColumns()
+    {
+        // Arrange
+        var settings = new AppSettings { HiddenColumns = ProcessColumns.Pid | ProcessColumns.Session };
+
+        // Act
+        _store.Save(settings);
+        var loaded = _store.Load();
+
+        // Assert
+        loaded.HiddenColumns.Should().Be(ProcessColumns.Pid | ProcessColumns.Session);
+    }
+
+    [Fact]
+    public void Save_HiddenColumns_AreWrittenAsStringArray()
+    {
+        // Act
+        _store.Save(new AppSettings { HiddenColumns = ProcessColumns.Pid | ProcessColumns.Session });
+
+        // Assert
+        File.ReadAllText(_path).Should().Contain("\"HiddenColumns\": [").And.Contain("\"Pid\"").And.Contain("\"Session\"");
+    }
+
+    [Fact]
+    public void Load_HiddenColumnsWithUnknownName_IgnoresTheUnknownName()
+    {
+        // Arrange
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        File.WriteAllText(_path, "{ \"HiddenColumns\": [\"Memory\", \"Bogus\"] }");
+
+        // Act
+        var loaded = _store.Load();
+
+        // Assert
+        loaded.HiddenColumns.Should().Be(ProcessColumns.Memory);
+    }
+
+    [Fact]
+    public void Load_FileWithoutHiddenColumns_ShowsAllColumns()
+    {
+        // Arrange
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        File.WriteAllText(_path, "{ \"TreeView\": true }");
+
+        // Act
+        var loaded = _store.Load();
+
+        // Assert
+        loaded.HiddenColumns.Should().Be(ProcessColumns.None);
+    }
+
+    [Fact]
     public void Save_ThenLoad_RoundTripsAndCreatesDirectory()
     {
         // Arrange
@@ -112,5 +164,18 @@ public sealed class JsonSettingsStoreTests : IDisposable
         // Assert
         result.Theme.Should().Be(AppTheme.System);
         result.RefreshInterval.Should().Be(ProcessMonitor.MaximumInterval);
+    }
+
+    [Fact]
+    public void Sanitize_UnknownHiddenColumnBits_AreRemoved()
+    {
+        // Arrange
+        var settings = new AppSettings { HiddenColumns = (ProcessColumns)(1 << 20) | ProcessColumns.Pid };
+
+        // Act
+        var result = settings.Sanitize();
+
+        // Assert
+        result.HiddenColumns.Should().Be(ProcessColumns.Pid);
     }
 }
