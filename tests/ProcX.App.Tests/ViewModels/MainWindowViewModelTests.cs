@@ -22,7 +22,8 @@ public class MainWindowViewModelTests
         new ProcessTerminator(_snapshots, _controller),
         new ProcessMonitor(_snapshots, new FixedSystemInformation(), TimeProvider.System, NullLogger<ProcessMonitor>.Instance),
         _elevation,
-        _shell);
+        _shell,
+        new ProcessDetailsViewModel(new FakeDetailsProvider(), _list) { IsActive = false });
 
     private ProcessSample AddProcess(int pid, string name, int parentPid = 0, int createdAfterSeconds = 0)
     {

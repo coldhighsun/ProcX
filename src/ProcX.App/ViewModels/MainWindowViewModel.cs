@@ -53,14 +53,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <param name="monitor">Refreshes the list right after an action.</param>
     /// <param name="elevation">Queries and requests elevation.</param>
     /// <param name="shell">Dialogs and shell commands.</param>
+    /// <param name="details">The details panel.</param>
     public MainWindowViewModel(
         ProcessListViewModel processes,
         ProcessTerminator terminator,
         ProcessMonitor monitor,
         IElevationService elevation,
-        IShellInteraction shell)
+        IShellInteraction shell,
+        ProcessDetailsViewModel details)
     {
         Processes = processes;
+        Details = details;
         _terminator = terminator;
         _monitor = monitor;
         _elevation = elevation;
@@ -73,6 +76,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Gets the process list.
     /// </summary>
     public ProcessListViewModel Processes { get; }
+
+    /// <summary>
+    /// Gets the details panel.
+    /// </summary>
+    public ProcessDetailsViewModel Details { get; }
+
+    /// <summary>
+    /// Gets or sets whether the details panel is shown.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsDetailsVisible { get; set; } = true;
 
     /// <summary>
     /// Gets whether ProcX runs elevated.
@@ -275,6 +289,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         TerminationStatus.AccessDenied => "access denied",
         _ => new Win32Exception(result.ErrorCode).Message,
     };
+
+    /// <summary>
+    /// Activates the details panel only while it is shown.
+    /// </summary>
+    /// <param name="value">Whether the panel is shown.</param>
+    partial void OnIsDetailsVisibleChanged(bool value) => Details.IsActive = value;
 
     /// <summary>
     /// Re-evaluates command availability when the selection or its details change.

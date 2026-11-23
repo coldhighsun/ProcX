@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ProcX.App.Services;
 using ProcX.App.ViewModels;
+using ProcX.Application.Details;
 using ProcX.Application.Processes;
 using ProcX.Application.Security;
+using ProcX.Infrastructure.Details;
 using ProcX.Infrastructure.Processes;
 using ProcX.Infrastructure.Security;
 
@@ -29,6 +31,7 @@ public partial class App : System.Windows.Application
             services.AddSingleton<IProcessInfoProvider, Win32ProcessInfoProvider>();
             services.AddSingleton<IProcessController, Win32ProcessController>();
             services.AddSingleton<IElevationService, WindowsElevationService>();
+            services.AddSingleton<IProcessDetailsProvider, Win32ProcessDetailsProvider>();
 
             // Application
             services.AddSingleton<ProcessMonitor>();
@@ -38,6 +41,7 @@ public partial class App : System.Windows.Application
             // Presentation
             services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
             services.AddSingleton<IShellInteraction, WpfShellInteraction>();
+            services.AddSingleton<ProcessDetailsViewModel>();
             services.AddSingleton<MainWindowViewModel>();
             services.AddSingleton<ProcessIconProvider>();
             services.AddSingleton<IProcessRowEnricher, ProcessRowEnricher>();

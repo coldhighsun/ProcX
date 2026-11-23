@@ -6,6 +6,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:conv="clr-namespace:ProcX.App.Converters"
                  xmlns:vm="clr-namespace:ProcX.App.ViewModels"
+                 xmlns:views="clr-namespace:ProcX.App.Views"
                  mc:Ignorable="d"
                  d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
                  Title="{Binding Title}"
@@ -66,7 +67,9 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="DetailsRow" Height="280" MinHeight="0" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -87,6 +90,13 @@
                              Content="Tree view"
                              ToolTip="Show processes as a parent/child tree. Sorting by a column returns to the flat list."
                              IsChecked="{Binding Processes.IsTreeView}" />
+
+            <ui:ToggleSwitch DockPanel.Dock="Left"
+                             Margin="16,0,0,0"
+                             VerticalAlignment="Center"
+                             Content="Details"
+                             ToolTip="Show general information, threads, modules and handles of the selected process"
+                             IsChecked="{Binding IsDetailsVisible}" />
 
             <ui:Button DockPanel.Dock="Right"
                        Margin="8,0,0,0"
@@ -173,8 +183,21 @@
             </DataGrid.Columns>
         </DataGrid>
 
+        <!-- Details panel -->
+        <GridSplitter Grid.Row="3"
+                      Height="6"
+                      Margin="12,2,12,0"
+                      HorizontalAlignment="Stretch"
+                      ResizeDirection="Rows"
+                      Background="Transparent"
+                      Visibility="{Binding IsDetailsVisible, Converter={StaticResource BoolToVisibility}}" />
+        <views:ProcessDetailsView Grid.Row="4"
+                                  Margin="12,0,12,0"
+                                  DataContext="{Binding Details}"
+                                  Visibility="{Binding DataContext.IsDetailsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+
         <!-- Status bar -->
-        <StackPanel Grid.Row="3" Margin="16,6" Orientation="Horizontal">
+        <StackPanel Grid.Row="5" Margin="16,6" Orientation="Horizontal">
             <TextBlock Text="{Binding Processes.ProcessCount, StringFormat=Processes: {0}}" />
             <TextBlock Margin="24,0,0,0" Text="{Binding Processes.TotalCpuPercent, StringFormat=CPU: {0:0}%}" />
         </StackPanel>
