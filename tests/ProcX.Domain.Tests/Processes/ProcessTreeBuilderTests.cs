@@ -106,6 +106,42 @@ public class ProcessTreeBuilderTests
     }
 
     [Fact]
+    public void GetSubtreePostOrder_NestedProcesses_ReturnsChildrenBeforeParents()
+    {
+        // Arrange
+        var root = SampleFactory.Create(pid: 2, parentPid: 1, createdAfterSeconds: 1);
+        var processes = new[]
+        {
+            SampleFactory.Create(pid: 1, parentPid: 0, createdAfterSeconds: 0),
+            root,
+            SampleFactory.Create(pid: 3, parentPid: 2, createdAfterSeconds: 2),
+            SampleFactory.Create(pid: 4, parentPid: 3, createdAfterSeconds: 3),
+            SampleFactory.Create(pid: 5, parentPid: 2, createdAfterSeconds: 4),
+            SampleFactory.Create(pid: 6, parentPid: 1, createdAfterSeconds: 5),
+        };
+
+        // Act
+        var subtree = ProcessTreeBuilder.GetSubtreePostOrder(processes, root.Key);
+
+        // Assert
+        subtree.Select(static p => p.Pid).Should().Equal(4, 3, 5, 2);
+    }
+
+    [Fact]
+    public void GetSubtreePostOrder_UnknownRoot_ReturnsEmpty()
+    {
+        // Arrange
+        var processes = new[] { SampleFactory.Create(pid: 1, parentPid: 0, createdAfterSeconds: 0) };
+        var unknown = SampleFactory.Create(pid: 1, parentPid: 0, createdAfterSeconds: 99).Key;
+
+        // Act
+        var subtree = ProcessTreeBuilder.GetSubtreePostOrder(processes, unknown);
+
+        // Assert
+        subtree.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Flatten_AllExpanded_ReturnsDepthFirstOrderWithDepths()
     {
         // Arrange

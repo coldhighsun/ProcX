@@ -23,11 +23,6 @@ public sealed class Win32ProcessInfoProvider : IProcessInfoProvider
     private const int MaxPathLength = 32_767;
 
     /// <summary>
-    /// Tolerance when comparing creation times reported by different APIs.
-    /// </summary>
-    private static readonly TimeSpan CreateTimeTolerance = TimeSpan.FromMilliseconds(1);
-
-    /// <summary>
     /// Account names indexed by SID string; translating a SID may involve a network round-trip.
     /// </summary>
     private readonly ConcurrentDictionary<string, string?> _accountNames = new();
@@ -40,46 +35,16 @@ public sealed class Win32ProcessInfoProvider : IProcessInfoProvider
     /// <inheritdoc />
     public ProcessStaticInfo GetStaticInfo(ProcessKey key)
     {
-        using var process = PInvoke.OpenProcess_SafeHandle(
-            PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION,
-            false,
-            (uint)key.Pid);
-
-        if (process.IsInvalid)
+        using var process = ProcessHandles.OpenVerified(key, PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, out var error);
+        if (process is null)
         {
-            return (WIN32_ERROR)Marshal.GetLastPInvokeError() == WIN32_ERROR.ERROR_ACCESS_DENIED
-                ? ProcessStaticInfo.AccessDenied
-                : ProcessStaticInfo.Unavailable;
-        }
-
-        if (!IsSameInstance(process, key))
-        {
-            return ProcessStaticInfo.Unavailable;
+            return error == WIN32_ERROR.ERROR_ACCESS_DENIED ? ProcessStaticInfo.AccessDenied : ProcessStaticInfo.Unavailable;
         }
 
         var imagePath = GetImagePath(process);
         var description = imagePath is null ? null : _descriptions.GetOrAdd(imagePath, GetFileDescription);
 
         return new ProcessStaticInfo(imagePath, GetUserName(process), description, IsAccessDenied: false);
-    }
-
-    /// <summary>
-    /// Verifies that the opened handle refers to the process instance identified by <paramref name="key"/>,
-    /// guarding against the PID having been reused since the snapshot.
-    /// </summary>
-    /// <param name="process">The process handle.</param>
-    /// <param name="key">The expected identity.</param>
-    /// <returns><see langword="true"/> if the creation times match.</returns>
-    private static bool IsSameInstance(SafeFileHandle process, ProcessKey key)
-    {
-        if (!PInvoke.GetProcessTimes(process, out var creation, out _, out _, out _))
-        {
-            return false;
-        }
-
-        var ticks = ((long)creation.dwHighDateTime << 32) | (uint)creation.dwLowDateTime;
-        var createTime = new DateTimeOffset(DateTime.FromFileTimeUtc(ticks));
-        return (createTime - key.CreateTime).Duration() <= CreateTimeTolerance;
     }
 
     /// <summary>

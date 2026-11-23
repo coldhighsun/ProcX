@@ -7,3 +7,5 @@ GetTokenInformation
 QueryFullProcessImageName
 TOKEN_USER
 WIN32_ERROR
+TerminateProcess
+GetExitCodeProcess

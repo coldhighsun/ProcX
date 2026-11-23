@@ -92,6 +92,69 @@ public static class ProcessTreeBuilder
     }
 
     /// <summary>
+    /// Gets a process and all its descendants, children before parents.
+    /// </summary>
+    /// <remarks>
+    /// The post-order is the safe order for terminating a tree: descendants are ended before the
+    /// process that could otherwise spawn replacements.
+    /// </remarks>
+    /// <param name="processes">The processes of one snapshot.</param>
+    /// <param name="root">The process whose subtree to return.</param>
+    /// <returns>The subtree in post-order, ending with <paramref name="root"/>; empty if the root is not present.</returns>
+    public static IReadOnlyList<ProcessSample> GetSubtreePostOrder(IEnumerable<ProcessSample> processes, ProcessKey root)
+    {
+        var node = Find(Build(processes), root);
+        if (node is null)
+        {
+            return [];
+        }
+
+        var result = new List<ProcessSample>();
+        AppendPostOrder(node, result);
+        return result;
+    }
+
+    /// <summary>
+    /// Finds the node of a process in a forest.
+    /// </summary>
+    /// <param name="nodes">The nodes to search, including their descendants.</param>
+    /// <param name="key">The process identity.</param>
+    /// <returns>The node, or <see langword="null"/> if not found.</returns>
+    private static ProcessTreeNode? Find(IReadOnlyList<ProcessTreeNode> nodes, ProcessKey key)
+    {
+        var stack = new Stack<ProcessTreeNode>(nodes);
+        while (stack.TryPop(out var node))
+        {
+            if (node.Process.Key == key)
+            {
+                return node;
+            }
+
+            foreach (var child in node.Children)
+            {
+                stack.Push(child);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Appends a subtree to a list in post-order.
+    /// </summary>
+    /// <param name="node">The subtree root.</param>
+    /// <param name="result">The list to append to.</param>
+    private static void AppendPostOrder(ProcessTreeNode node, List<ProcessSample> result)
+    {
+        foreach (var child in node.Children)
+        {
+            AppendPostOrder(child, result);
+        }
+
+        result.Add(node.Process);
+    }
+
+    /// <summary>
     /// Determines whether <paramref name="candidate"/> precedes <paramref name="process"/> in the strict
     /// (creation time, PID) order, which is required for it to be a valid parent.
     /// </summary>
