@@ -23,7 +23,8 @@ public class MainWindowViewModelTests
         new ProcessMonitor(_snapshots, new FixedSystemInformation(), TimeProvider.System, NullLogger<ProcessMonitor>.Instance),
         _elevation,
         _shell,
-        new ProcessDetailsViewModel(new FakeDetailsProvider(), _list) { IsActive = false });
+        new ProcessDetailsViewModel(new FakeDetailsProvider(), _list) { IsActive = false },
+        _controller);
 
     private ProcessSample AddProcess(int pid, string name, int parentPid = 0, int createdAfterSeconds = 0)
     {
@@ -160,6 +161,107 @@ public class MainWindowViewModelTests
         _controller.Terminated.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(ProcessPriority.High)]
+    [InlineData(ProcessPriority.BelowNormal)]
+    public async Task SetPriority_RegularPriority_AppliesWithoutConfirmation(ProcessPriority priority)
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        var app = AddProcess(100, "app.exe");
+        Select(app);
+
+        // Act
+        await viewModel.SetPriorityCommand.ExecuteAsync(priority);
+
+        // Assert
+        _controller.PriorityChanges.Should().Equal((app.Key, priority));
+        _shell.Confirmations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SetPriority_RealtimeAndUserCancels_DoesNotApply()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        Select(AddProcess(100, "app.exe"));
+        _shell.ConfirmResult = false;
+
+        // Act
+        await viewModel.SetPriorityCommand.ExecuteAsync(ProcessPriority.Realtime);
+
+        // Assert
+        _shell.Confirmations.Should().ContainSingle().Which.Should().Contain("administrator");
+        _controller.PriorityChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SetPriority_AccessDeniedWhileNotElevated_OffersRestartAsAdministrator()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        Select(AddProcess(100, "service.exe"));
+        _controller.OperationStatus = ProcessOperationStatus.AccessDenied;
+        _shell.ConfirmResult = true;
+
+        // Act
+        await viewModel.SetPriorityCommand.ExecuteAsync(ProcessPriority.High);
+
+        // Assert
+        _shell.Confirmations.Should().ContainSingle().Which.Should().Contain("administrator");
+        _elevation.StartCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SetAffinity_UserPicksSubset_AppliesMask()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        var app = AddProcess(100, "app.exe");
+        Select(app);
+        _shell.PickedAffinity = AffinityMask.FromProcessors([0, 2]);
+
+        // Act
+        await viewModel.SetAffinityCommand.ExecuteAsync(null);
+
+        // Assert
+        _controller.AffinityChanges.Should().Equal((app.Key, AffinityMask.FromProcessors([0, 2])));
+    }
+
+    [Fact]
+    public async Task SetAffinity_UserCancelsOrKeepsSameMask_DoesNotApply()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        Select(AddProcess(100, "app.exe"));
+
+        // Act
+        _shell.PickedAffinity = null;
+        await viewModel.SetAffinityCommand.ExecuteAsync(null);
+        _shell.PickedAffinity = AffinityMask.All(4);
+        await viewModel.SetAffinityCommand.ExecuteAsync(null);
+
+        // Assert
+        _controller.AffinityChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SetAffinity_UnsupportedSystem_ShowsMessageWithoutPicker()
+    {
+        // Arrange
+        var viewModel = CreateViewModel();
+        Select(AddProcess(100, "app.exe"));
+        _controller.OperationStatus = ProcessOperationStatus.Unsupported;
+        _shell.PickedAffinity = AffinityMask.All(1);
+
+        // Act
+        await viewModel.SetAffinityCommand.ExecuteAsync(null);
+
+        // Assert
+        _shell.Messages.Should().ContainSingle().Which.Should().Contain("processor group");
+        _controller.AffinityChanges.Should().BeEmpty();
+    }
+
     [Fact]
     public void Commands_NoSelection_CannotExecute()
     {
@@ -258,6 +360,33 @@ public class MainWindowViewModelTests
             Terminated.Add(key);
             return new TerminationResult(key, TerminationStatus.Succeeded);
         }
+
+        public List<(ProcessKey Key, ProcessPriority Priority)> PriorityChanges { get; } = [];
+
+        public List<(ProcessKey Key, AffinityMask Mask)> AffinityChanges { get; } = [];
+
+        public ProcessOperationStatus OperationStatus { get; set; } = ProcessOperationStatus.Succeeded;
+
+        public AffinityInfo Affinity { get; set; } = new(AffinityMask.All(4), AffinityMask.All(4));
+
+        public ProcessOperationResult<bool> SetPriority(ProcessKey key, ProcessPriority priority)
+        {
+            PriorityChanges.Add((key, priority));
+            return OperationStatus == ProcessOperationStatus.Succeeded
+                ? ProcessOperationResult.Ok(true)
+                : ProcessOperationResult.Fail<bool>(OperationStatus, 5);
+        }
+
+        public ProcessOperationResult<AffinityInfo> GetAffinity(ProcessKey key) =>
+            OperationStatus == ProcessOperationStatus.Succeeded
+                ? ProcessOperationResult.Ok(Affinity)
+                : ProcessOperationResult.Fail<AffinityInfo>(OperationStatus, 5);
+
+        public ProcessOperationResult<bool> SetAffinity(ProcessKey key, AffinityMask mask)
+        {
+            AffinityChanges.Add((key, mask));
+            return ProcessOperationResult.Ok(true);
+        }
     }
 
     private sealed class FakeShell : IShellInteraction
@@ -287,6 +416,11 @@ public class MainWindowViewModelTests
         }
 
         public void OpenFileLocation(string path) => OpenedLocations.Add(path);
+
+        public AffinityMask? PickedAffinity { get; set; }
+
+        public Task<AffinityMask?> PickAffinityAsync(string processName, AffinityMask current, AffinityMask available) =>
+            Task.FromResult(PickedAffinity);
 
         public void CopyToClipboard(string text) => Clipboard = text;
 

@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Windows;
+using ProcX.App.ViewModels;
+using ProcX.App.Views;
+using ProcX.Domain.Processes;
 using MessageBox = Wpf.Ui.Controls.MessageBox;
 using MessageBoxResult = Wpf.Ui.Controls.MessageBoxResult;
 
@@ -37,6 +40,14 @@ public sealed class WpfShellInteraction : IShellInteraction
         };
 
         await dialog.ShowDialogAsync();
+    }
+
+    /// <inheritdoc />
+    public Task<AffinityMask?> PickAffinityAsync(string processName, AffinityMask current, AffinityMask available)
+    {
+        var viewModel = new AffinityDialogViewModel(processName, current, available);
+        var dialog = new AffinityDialog(viewModel) { Owner = System.Windows.Application.Current.MainWindow };
+        return Task.FromResult(dialog.ShowDialog() == true ? viewModel.Mask : (AffinityMask?)null);
     }
 
     /// <inheritdoc />

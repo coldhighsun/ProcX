@@ -114,5 +114,13 @@ public class ProcessTerminatorTests
             Terminated.Add(key);
             return new TerminationResult(key, TerminationStatus.Succeeded);
         }
+
+        public ProcessOperationResult<bool> SetPriority(ProcessKey key, ProcessPriority priority) =>
+            throw new NotSupportedException();
+
+        public ProcessOperationResult<AffinityInfo> GetAffinity(ProcessKey key) => throw new NotSupportedException();
+
+        public ProcessOperationResult<bool> SetAffinity(ProcessKey key, AffinityMask mask) =>
+            throw new NotSupportedException();
     }
 }

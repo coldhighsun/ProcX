@@ -19,3 +19,8 @@ CreateToolhelp32Snapshot
 Module32FirstW
 Module32NextW
 MODULEENTRY32W
+SetPriorityClass
+GetProcessAffinityMask
+SetProcessAffinityMask
+GetActiveProcessorGroupCount
+PROCESS_CREATION_FLAGS

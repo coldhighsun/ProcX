@@ -26,6 +26,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ProcessTerminator _terminator;
 
     /// <summary>
+    /// Changes process priority and affinity.
+    /// </summary>
+    private readonly IProcessController _controller;
+
+    /// <summary>
     /// Refreshes the list right after an action.
     /// </summary>
     private readonly ProcessMonitor _monitor;
@@ -54,16 +59,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <param name="elevation">Queries and requests elevation.</param>
     /// <param name="shell">Dialogs and shell commands.</param>
     /// <param name="details">The details panel.</param>
+    /// <param name="controller">Changes process priority and affinity.</param>
     public MainWindowViewModel(
         ProcessListViewModel processes,
         ProcessTerminator terminator,
         ProcessMonitor monitor,
         IElevationService elevation,
         IShellInteraction shell,
-        ProcessDetailsViewModel details)
+        ProcessDetailsViewModel details,
+        IProcessController controller)
     {
         Processes = processes;
         Details = details;
+        _controller = controller;
         _terminator = terminator;
         _monitor = monitor;
         _elevation = elevation;
@@ -171,6 +179,111 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var results = await Task.Run(() => _terminator.TerminateTree(row.Key)).ConfigureAwait(true);
         await RefreshAsync().ConfigureAwait(true);
         await ReportFailuresAsync(results, tree.ToDictionary(static p => p.Key, static p => p.Name)).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Sets the priority class of the selected process.
+    /// </summary>
+    /// <param name="priority">The new priority class.</param>
+    /// <returns>A task that completes when the action has finished.</returns>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private async Task SetPriorityAsync(ProcessPriority priority)
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        if (priority == ProcessPriority.Realtime)
+        {
+            var message = IsElevated
+                ? "Realtime priority can starve the mouse, keyboard and disk drivers and freeze Windows."
+                : "Realtime priority needs administrator rights. Without them Windows applies High priority instead.";
+            if (!await _shell.ConfirmAsync($"Set {row.Name} to Realtime?", $"{message}\n\nContinue?", "Set Realtime").ConfigureAwait(true))
+            {
+                return;
+            }
+        }
+
+        var result = await Task.Run(() => _controller.SetPriority(row.Key, priority)).ConfigureAwait(true);
+        await RefreshAsync().ConfigureAwait(true);
+        await ReportOperationFailureAsync(result.Status, result.ErrorCode, row, "set the priority of").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Lets the user restrict the selected process to chosen processors.
+    /// </summary>
+    /// <returns>A task that completes when the action has finished.</returns>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private async Task SetAffinityAsync()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        var current = await Task.Run(() => _controller.GetAffinity(row.Key)).ConfigureAwait(true);
+        if (current.Value is not { } info)
+        {
+            await ReportOperationFailureAsync(current.Status, current.ErrorCode, row, "read the affinity of").ConfigureAwait(true);
+            return;
+        }
+
+        if (await _shell.PickAffinityAsync(row.Name, info.Process, info.System).ConfigureAwait(true) is not { } mask
+            || mask == info.Process)
+        {
+            return;
+        }
+
+        var result = await Task.Run(() => _controller.SetAffinity(row.Key, mask)).ConfigureAwait(true);
+        await ReportOperationFailureAsync(result.Status, result.ErrorCode, row, "set the affinity of").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Tells the user why a priority or affinity operation failed, offering elevation when it may help.
+    /// </summary>
+    /// <param name="status">The outcome.</param>
+    /// <param name="errorCode">The Win32 error code.</param>
+    /// <param name="row">The affected process.</param>
+    /// <param name="action">The attempted action in the form "set the priority of".</param>
+    /// <returns>A task that completes when the user has dismissed the message.</returns>
+    private async Task ReportOperationFailureAsync(ProcessOperationStatus status, int errorCode, ProcessRowViewModel row, string action)
+    {
+        if (status == ProcessOperationStatus.Succeeded)
+        {
+            return;
+        }
+
+        var target = $"{row.Name} (PID {row.Pid})";
+        switch (status)
+        {
+            case ProcessOperationStatus.AccessDenied when !IsElevated:
+                if (await _shell.ConfirmAsync(
+                    "Access denied",
+                    $"Cannot {action} {target}: access denied.\n\nRestart ProcX as administrator and try again?",
+                    "Restart as administrator").ConfigureAwait(true))
+                {
+                    RestartAsAdministrator();
+                }
+
+                return;
+
+            case ProcessOperationStatus.AccessDenied:
+                await _shell.ShowMessageAsync("Access denied", $"Cannot {action} {target}: access denied, even with administrator rights. The process is protected.").ConfigureAwait(true);
+                return;
+
+            case ProcessOperationStatus.NotFound:
+                await _shell.ShowMessageAsync("Process not found", $"{target} has already exited.").ConfigureAwait(true);
+                return;
+
+            case ProcessOperationStatus.Unsupported:
+                await _shell.ShowMessageAsync("Not supported", "Processor affinity is not supported on systems with more than one processor group (more than 64 logical processors).").ConfigureAwait(true);
+                return;
+
+            default:
+                await _shell.ShowMessageAsync("Operation failed", $"Cannot {action} {target}: {new Win32Exception(errorCode).Message}").ConfigureAwait(true);
+                return;
+        }
     }
 
     /// <summary>
@@ -314,6 +427,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         EndTaskCommand.NotifyCanExecuteChanged();
         EndProcessTreeCommand.NotifyCanExecuteChanged();
+        SetPriorityCommand.NotifyCanExecuteChanged();
+        SetAffinityCommand.NotifyCanExecuteChanged();
         CopyPidCommand.NotifyCanExecuteChanged();
         NotifyPathCommandsChanged();
     }

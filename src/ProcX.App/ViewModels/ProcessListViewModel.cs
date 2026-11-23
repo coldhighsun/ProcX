@@ -33,6 +33,7 @@ public sealed partial class ProcessListViewModel : ObservableObject
         nameof(ProcessRowViewModel.Description),
         nameof(ProcessRowViewModel.UserName),
         nameof(ProcessRowViewModel.ImagePath),
+        nameof(ProcessRowViewModel.Priority),
         nameof(ProcessRowViewModel.TreeOrder),
     ];
 

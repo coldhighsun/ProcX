@@ -1,3 +1,5 @@
+using ProcX.Domain.Processes;
+
 namespace ProcX.App.Services;
 
 /// <summary>
@@ -21,6 +23,15 @@ public interface IShellInteraction
     /// <param name="message">The message.</param>
     /// <returns>A task that completes when the dialog is closed.</returns>
     Task ShowMessageAsync(string title, string message);
+
+    /// <summary>
+    /// Lets the user choose the processors a process may run on.
+    /// </summary>
+    /// <param name="processName">The process name, for the dialog title.</param>
+    /// <param name="current">The processors the process currently uses.</param>
+    /// <param name="available">The processors available on the system.</param>
+    /// <returns>The chosen processors, or <see langword="null"/> if the user cancelled.</returns>
+    Task<AffinityMask?> PickAffinityAsync(string processName, AffinityMask current, AffinityMask available);
 
     /// <summary>
     /// Opens Explorer with the file selected.

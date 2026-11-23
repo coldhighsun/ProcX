@@ -98,10 +98,106 @@ public sealed class Win32ProcessControllerTests : IDisposable
         var results = terminator.TerminateTree(shellKey);
 
         // Assert
-        results.Should().OnlyContain(static r => r.Status == TerminationStatus.Succeeded);
+        // Ending the console host may take the console's other processes down first, which counts as gone.
+        results.Should().OnlyContain(static r => r.IsGone);
         results.Select(static r => r.Key).Should().Contain(ping.Key).And.EndWith(shellKey);
         await WaitForExitAsync(shell);
         _snapshots.Capture().Processes.Should().NotContain(p => p.Key == ping.Key);
+    }
+
+    [Theory]
+    [InlineData(ProcessPriority.Idle, ProcessPriorityClass.Idle)]
+    [InlineData(ProcessPriority.BelowNormal, ProcessPriorityClass.BelowNormal)]
+    [InlineData(ProcessPriority.AboveNormal, ProcessPriorityClass.AboveNormal)]
+    [InlineData(ProcessPriority.Normal, ProcessPriorityClass.Normal)]
+    public void SetPriority_ChildProcess_ChangesPriorityClass(ProcessPriority priority, ProcessPriorityClass expected)
+    {
+        // Arrange
+        var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
+
+        // Act
+        var result = _controller.SetPriority(KeyOf(child.Id), priority);
+        child.Refresh();
+
+        // Assert
+        result.Status.Should().Be(ProcessOperationStatus.Succeeded);
+        child.PriorityClass.Should().Be(expected);
+    }
+
+    [Fact]
+    public void SetPriority_CreateTimeMismatch_ReturnsNotFoundAndLeavesPriority()
+    {
+        // Arrange
+        var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
+        var stale = KeyOf(child.Id) with { CreateTime = DateTimeOffset.UnixEpoch };
+
+        // Act
+        var result = _controller.SetPriority(stale, ProcessPriority.Idle);
+        child.Refresh();
+
+        // Assert
+        result.Status.Should().Be(ProcessOperationStatus.NotFound);
+        child.PriorityClass.Should().Be(ProcessPriorityClass.Normal);
+    }
+
+    [Fact]
+    public void SetPriority_SystemProcess_ReturnsAccessDenied()
+    {
+        // Act
+        var result = _controller.SetPriority(KeyOf(4), ProcessPriority.Idle);
+
+        // Assert
+        result.Status.Should().Be(ProcessOperationStatus.AccessDenied);
+    }
+
+    [Fact]
+    public void SetAffinity_ChildProcess_RestrictsAndReadsBack()
+    {
+        // Arrange
+        var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
+        var key = KeyOf(child.Id);
+        var before = _controller.GetAffinity(key);
+        Assert.SkipUnless(before.IsSuccess, "Affinity is not supported on this system.");
+
+        // Act
+        var set = _controller.SetAffinity(key, AffinityMask.FromProcessors([0]));
+        var after = _controller.GetAffinity(key);
+        child.Refresh();
+
+        // Assert
+        set.Status.Should().Be(ProcessOperationStatus.Succeeded);
+        after.Value!.Process.Value.Should().Be(1UL);
+        after.Value.System.Value.Should().Be(before.Value!.System.Value);
+        ((ulong)(nuint)child.ProcessorAffinity).Should().Be(1UL);
+    }
+
+    [Fact]
+    public void SetAffinity_EmptyMask_FailsWithoutChangingProcess()
+    {
+        // Arrange
+        var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
+
+        // Act
+        var result = _controller.SetAffinity(KeyOf(child.Id), new AffinityMask(0));
+
+        // Assert
+        result.Status.Should().Be(ProcessOperationStatus.Failed);
+    }
+
+    [Fact]
+    public void GetAffinity_ProcessAlreadyExited_ReturnsNotFound()
+    {
+        // Arrange
+        var child = StartLongRunning("ping.exe", "-n 60 127.0.0.1");
+        var key = KeyOf(child.Id);
+        child.Kill();
+        child.WaitForExit();
+
+        // Act
+        var result = _controller.GetAffinity(key);
+
+        // Assert
+        result.Status.Should().BeOneOf(ProcessOperationStatus.NotFound, ProcessOperationStatus.Unsupported);
     }
 
     private Process StartLongRunning(string fileName, string arguments)

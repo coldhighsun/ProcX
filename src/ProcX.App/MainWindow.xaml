@@ -7,6 +7,7 @@
                  xmlns:conv="clr-namespace:ProcX.App.Converters"
                  xmlns:vm="clr-namespace:ProcX.App.ViewModels"
                  xmlns:views="clr-namespace:ProcX.App.Views"
+                 xmlns:domain="clr-namespace:ProcX.Domain.Processes;assembly=ProcX.Domain"
                  mc:Ignorable="d"
                  d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
                  Title="{Binding Title}"
@@ -144,6 +145,16 @@
                     <MenuItem Header="End task" InputGestureText="Del" Command="{Binding EndTaskCommand}" />
                     <MenuItem Header="End process tree" InputGestureText="Shift+Del" Command="{Binding EndProcessTreeCommand}" />
                     <Separator />
+                    <MenuItem Header="Set priority">
+                        <MenuItem Header="Realtime" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.Realtime}" />
+                        <MenuItem Header="High" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.High}" />
+                        <MenuItem Header="Above normal" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.AboveNormal}" />
+                        <MenuItem Header="Normal" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.Normal}" />
+                        <MenuItem Header="Below normal" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.BelowNormal}" />
+                        <MenuItem Header="Low" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static domain:ProcessPriority.Idle}" />
+                    </MenuItem>
+                    <MenuItem Header="Set affinity…" Command="{Binding SetAffinityCommand}" />
+                    <Separator />
                     <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />
                     <MenuItem Header="Copy PID" Command="{Binding CopyPidCommand}" />
                     <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" />
@@ -177,6 +188,7 @@
                 <DataGridTextColumn Header="Commit" Width="110" Binding="{Binding CommitBytes, Converter={StaticResource ByteSize}}" SortMemberPath="CommitBytes" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="Threads" Width="100" Binding="{Binding ThreadCount}" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="Handles" Width="100" Binding="{Binding HandleCount}" ElementStyle="{StaticResource RightAligned}" />
+                <DataGridTextColumn Header="Priority" Width="125" Binding="{Binding Priority}" />
                 <DataGridTextColumn Header="User" Width="120" Binding="{Binding UserName}" />
                 <DataGridTextColumn Header="Session" Width="95" Binding="{Binding SessionId}" ElementStyle="{StaticResource RightAligned}" />
                 <DataGridTextColumn Header="Path" Width="*" MinWidth="200" Binding="{Binding ImagePath}" />

@@ -1,0 +1,50 @@
+<ui:FluentWindow x:Class="ProcX.App.Views.AffinityDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="{Binding Title}"
+                 Width="460"
+                 SizeToContent="Height"
+                 MaxHeight="620"
+                 ResizeMode="NoResize"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 WindowStartupLocation="CenterOwner"
+                 ShowInTaskbar="False">
+    <Grid Margin="20,0,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMaximize="False" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="0,8,0,8" Orientation="Horizontal">
+            <TextBlock VerticalAlignment="Center" Text="Allow this process to run on:" />
+            <ui:Button Margin="16,0,0,0" Content="All" Command="{Binding SelectAllCommand}" />
+            <ui:Button Margin="8,0,0,0" Content="None" Command="{Binding SelectNoneCommand}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Processors}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Margin="0,2" Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="3" Margin="0,16,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
+            <ui:Button Content="OK" Appearance="Primary" IsDefault="True" Click="OnOkClick" IsEnabled="{Binding IsValid}" />
+            <ui:Button Margin="8,0,0,0" Content="Cancel" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>

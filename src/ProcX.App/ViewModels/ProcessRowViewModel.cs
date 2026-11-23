@@ -30,6 +30,12 @@ public sealed partial class ProcessRowViewModel : ObservableObject
     public ProcessSample Sample { get; private set; }
 
     /// <summary>
+    /// Gets or sets the priority class, derived from the base priority of the process.
+    /// </summary>
+    [ObservableProperty]
+    public partial ProcessPriority Priority { get; set; }
+
+    /// <summary>
     /// Gets or sets the position of the row in the depth-first tree order.
     /// </summary>
     [ObservableProperty]
@@ -185,6 +191,7 @@ public sealed partial class ProcessRowViewModel : ObservableObject
 
         var sample = metrics.Sample;
         Sample = sample;
+        Priority = ProcessPriorityExtensions.FromBasePriority(sample.BasePriority);
         CpuPercent = metrics.CpuPercent;
         MemoryBytes = sample.PrivateWorkingSetBytes;
         CommitBytes = sample.PrivateBytes;
